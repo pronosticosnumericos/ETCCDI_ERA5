@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <title>Mapa – TX90p / WSDI (tendencias: grid, estatal, municipal)</title>
+
+  <!-- Leaflet CSS -->
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    crossorigin=""
+  />
+
+  <style>
+    html, body { height:100vh; margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
+    body { display:flex; flex-direction:column; }
+    #menu {
+      padding:10px; background:#f5f5f5; border-bottom:1px solid #ccc;
+      display:flex; gap:16px; align-items:center; flex-wrap:wrap;
+    }
+    #menu label { font-weight:600; color:#333; }
+    #map { flex:7; }
+    #chart-container {
+      flex:3; padding:16px; background:#fff;
+      border-top:4px solid #007acc;
+      box-shadow:0 -2px 6px rgba(0,0,0,0.1);
+      display:flex; flex-direction:column; overflow:hidden;
+    }
+    #chart-container h3 {
+      margin:0 0 12px; font-size:1.05rem; font-weight:600; color:#007acc; text-align:center;
+    }
+    #chart-empty {
+      margin:auto; padding:12px 16px; background:#f7fafc; border:1px dashed #a0aec0; color:#2d3748; border-radius:8px;
+      font-size:0.95rem; text-align:center;
+    }
+    .info.legend { background:white; padding:8px 12px; box-shadow:0 0 15px rgba(0,0,0,0.15); font-size:13px; line-height:1.2; }
+    .info.legend h4 { margin:0 0 6px; font-size:15px; font-weight:600; color:#333; }
+    .gradient-bar {
+      width:220px; height:10px;
+      background:linear-gradient(to right,#3182bd 0%,#fff 50%,#de2d26 100%);
+      margin-bottom:6px; border:1px solid #aaa;
+    }
+    .legend-labels { display:flex; justify-content:space-between; width:220px; font-size:12px; color:#333; }
+  </style>
+</head>
+<body>
+
+  <div id="menu">
+    <label for="index-select">Índice:</label>
+    <select id="index-select">
+      <option value="tx90p">TX90p (días cálidos)</option>
+      <option value="wsdi">WSDI (rachas cálidas)</option>
+    </select>
+
+    <label for="layer-select">Capa:</label>
+    <select id="layer-select">
+      <option value="grid">Sin filtrar (grid)</option>
+      <option value="state">Estatal</option>
+      <option value="muni">Municipal</option>
+    </select>
+
+    <label style="margin-left:8px;">
+      <input type="checkbox" id="sig-only" />
+      Solo significativas (p&lt;0.05)
+    </label>
+  </div>
+
+  <div id="map"></div>
+
+  <div id="chart-container">
+    <h3 id="chart-title">Haz clic en una celda / estado / municipio</h3>
+    <div id="chart-empty">Esta vista usa <b>solo tendencias</b> desde NetCDF (sin series). Selecciona un polígono para ver su resumen.</div>
+  </div>
+
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+
+  <script>
+    // === Archivos por índice + capa (SOLO tendencias) ===
+    const FILES = {
+      tx90p: {
+        grid:  './trends_tx90p_grid.json',
+        state: './trends_tx90p_state.json',
+        muni:  './trends_tx90p_muni.json'
+      },
+      wsdi: {
+        grid:  './trends_wsdi_grid.json',
+        state: './trends_wsdi_state.json',
+        muni:  './trends_wsdi_muni.json'
+      }
+    };
+
+    // Config de unidades y rangos por índice
+    const INDEX_CFG = {
+      tx90p: { title:'TX90p', unitsSlope:'%/década',     min:-6, max:6, legend:'Pendiente (%/década)' },
+      wsdi:  { title:'WSDI',  unitsSlope:'días/década',  min:-8, max:8, legend:'Pendiente (días/década)' }
+    };
+
+    // Caché simple de fetch
+    const cache = {};
+    const fetchOnce = url => (cache[url] ??= fetch(url).then(r => { if(!r.ok) throw new Error(`HTTP ${r.status} — ${url}`); return r.json(); }));
+
+    // === Leaflet map ===
+    const mexicoBounds = [[14.5, -118.5], [32.9, -86.5]];
+    const map = L.map('map', { maxBounds: mexicoBounds, maxBoundsViscosity: 1.0, minZoom: 5 })
+      .setView([23.0, -102.0], 5);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap', maxZoom: 19
+    }).addTo(map);
+
+    let geojsonLayerRef = null, legendControl = null;
+
+    // === Helpers ===
+    function getColorScale(min, max){
+      return d => {
+        let t = (d - min) / (max - min);
+        t = Math.max(0, Math.min(1, t));
+        if (t < 0.5) { const u = t/0.5; return `rgb(${Math.round(0x31 + u*(255-0x31))},${Math.round(0x82 + u*(255-0x82))},${Math.round(0xbd + u*(255-0xbd))})`; }
+        else { const u = (t-0.5)/0.5; return `rgb(${Math.round(255 + u*(0xde-255))},${Math.round(255 + u*(0x2d-255))},${Math.round(255 + u*(0x26-255))})`; }
+      };
+    }
+
+    function makeLegend(cfg){
+      if (legendControl) map.removeControl(legendControl);
+      legendControl = L.control({position:'bottomright'});
+      legendControl.onAdd = () => {
+        const div = L.DomUtil.create('div','info legend');
+        div.innerHTML = `<h4>${cfg.legend}</h4>
+          <div class="gradient-bar"></div>
+          <div class="legend-labels"><span>${cfg.min}</span><span>0</span><span>${cfg.max}</span></div>`;
+        return div;
+      };
+      legendControl.addTo(map);
+    }
+
+    function layerStyle(layerKey, cfg, color, pr){
+      const m = pr.slope_decade;
+      const base = { fillColor: Number.isFinite(m) ? color(m) : '#ccc', fillOpacity: 0.85 };
+      if (layerKey === 'grid')  return { ...base, color:'#888', weight:0.5 };
+      if (layerKey === 'state') return { ...base, color: pr.sig_p_lt_0p05 ? '#111' : '#666', weight: pr.sig_p_lt_0p05 ? 2 : 1, dashArray: pr.sig_p_lt_0p05 ? null : '3' };
+      if (layerKey === 'muni')  return { ...base, color:'#666', weight:0.6 };
+      return { ...base, color:'#666', weight:1 };
+    }
+
+    function showSummary(name, cfg, pr){
+      const pvTxt = Number.isFinite(pr.pvalue) ? pr.pvalue.toFixed(3) : 'NA';
+      const cve = pr.cve_ent ? ` (CVE ${pr.cve_ent})` : '';
+      const title = `${name}${cve} – ${cfg.title}`;
+      document.getElementById('chart-title').textContent = title;
+      document.getElementById('chart-empty').innerHTML =
+        `<div><b>Pendiente:</b> ${Number.isFinite(pr.slope_decade) ? pr.slope_decade.toFixed(2) : 'NA'} ${cfg.unitsSlope}</div>
+         <div><b>p-valor:</b> ${pvTxt} &nbsp;|&nbsp; <b>Significativo (p<0.05):</b> ${pr.sig_p_lt_0p05 ? 'Sí' : 'No'}</div>
+         ${typeof pr.sig_frac === 'number' ? `<div><b>Fracción de celdas significativas:</b> ${(pr.sig_frac*100).toFixed(0)}%</div>` : ''}`;
+    }
+
+    // === Carga/Redibujo ===
+    function loadData(){
+      const idxKey   = document.getElementById('index-select').value;
+      const layerKey = document.getElementById('layer-select').value;
+      const sigOnly  = document.getElementById('sig-only').checked;
+      const cfg = INDEX_CFG[idxKey];
+      const file = FILES[idxKey][layerKey];
+
+      makeLegend(cfg);
+
+      fetchOnce(file).then(data => {
+        if (geojsonLayerRef) map.removeLayer(geojsonLayerRef);
+        const color = getColorScale(cfg.min, cfg.max);
+
+        geojsonLayerRef = L.geoJSON(data, {
+          filter: f => !sigOnly || !!f.properties.sig_p_lt_0p05,
+          style:  f => layerStyle(layerKey, cfg, color, f.properties),
+          onEachFeature: (f, layer) => {
+            const pr = f.properties;
+            const codeTxt = pr.cve_ent ? ` (CVE ${pr.cve_ent})` : '';
+            const sigTxt = pr.sig_p_lt_0p05 ? 'Sí' : 'No';
+            layer.bindPopup(
+              `<strong>${pr.name}${codeTxt}</strong><br>`+
+              `Pendiente: ${Number.isFinite(pr.slope_decade) ? pr.slope_decade.toFixed(2) : 'NA'} ${cfg.unitsSlope}<br>`+
+              `p-valor: ${Number.isFinite(pr.pvalue) ? pr.pvalue.toFixed(3) : 'NA'}<br>`+
+              `Significativo (p<0.05): ${sigTxt}` +
+              (typeof pr.sig_frac === 'number' ? `<br>Fracción sig.: ${(pr.sig_frac*100).toFixed(0)}%` : '')
+            );
+            layer.on({
+              mouseover: e => { e.target.setStyle({ weight: Math.max((e.target.options.weight||1)+0.8, 1.5), color:'#000', fillOpacity:1 }); e.target.bringToFront(); },
+              mouseout:  e => geojsonLayerRef.resetStyle(e.target),
+              click:     () => showSummary(pr.name, cfg, pr)
+            });
+          }
+        }).addTo(map);
+
+        // Reset panel
+        document.getElementById('chart-title').textContent = 'Haz clic en una celda / estado / municipio';
+        document.getElementById('chart-empty').innerHTML   = 'Esta vista usa <b>solo tendencias</b> desde NetCDF (sin series). Selecciona un polígono para ver su resumen.';
+      }).catch(err => {
+        console.error('Error cargando', file, err);
+        alert(`No se pudo cargar ${file}.\n¿Generaste ese JSON?`);
+      });
+    }
+
+    document.getElementById('index-select').addEventListener('change', loadData);
+    document.getElementById('layer-select').addEventListener('change', loadData);
+    document.getElementById('sig-only').addEventListener('change', loadData);
+
+    // Inicial
+    loadData();
+  </script>
+</body>
+</html>
+
