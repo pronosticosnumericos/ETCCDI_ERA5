@@ -49,6 +49,9 @@
     <label for="index-select">Índice:</label>
     <select id="index-select">
       <option value="tx90p">TX90p (días cálidos)</option>
+      <option value="tn90p">TN90p (noches cálidas)</option>
+      <option value="tx10p">TX10p (días fríos)</option>
+      <option value="tn10p">TN10p (noches frías)</option>                  
       <option value="wsdi">WSDI (rachas cálidas)</option>
     </select>
 
@@ -83,16 +86,35 @@
         state: './trends_tx90p_state.json',
         muni:  './trends_tx90p_muni.json'
       },
+      tn90p: {
+        grid:  './trends_tn90p_grid.json',
+        state: './trends_tn90p_state.json',
+        muni:  './trends_tn90p_muni.json'
+      },
+      tx10p: {
+        grid:  './trends_tx10p_grid.json',
+        state: './trends_tx10p_state.json',
+        muni:  './trends_tx10p_muni.json'
+      },
+      tn10p: {
+        grid:  './trends_tn10p_grid.json',
+        state: './trends_tn10p_state.json',
+        muni:  './trends_tn10p_muni.json'
+      },                  
       wsdi: {
         grid:  './trends_wsdi_grid.json',
         state: './trends_wsdi_state.json',
         muni:  './trends_wsdi_muni.json'
       }
+      
     };
 
     // Config de unidades y rangos por índice
     const INDEX_CFG = {
-      tx90p: { title:'TX90p', unitsSlope:'%/década',     min:-6, max:6, legend:'Pendiente (%/década)' },
+      tx90p: { title:'TX90p', unitsSlope:'% días/década',     min:-6, max:6, legend:'Pendiente (% días/década)' },
+      tn90p: { title:'TN90p', unitsSlope:'% días/década',     min:-6, max:6, legend:'Pendiente (% días/década)' },
+      tx10p: { title:'TX10p', unitsSlope:'% días/década',     min:-6, max:6, legend:'Pendiente (% días/década)' },
+      tn10p: { title:'TN10p', unitsSlope:'% días/década',     min:-6, max:6, legend:'Pendiente (% días/década)' },                  
       wsdi:  { title:'WSDI',  unitsSlope:'días/década',  min:-8, max:8, legend:'Pendiente (días/década)' }
     };
 
