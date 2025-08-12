@@ -2,57 +2,81 @@
 <html lang="es">
 <head>
   <meta charset="utf-8" />
-  <title>Mapa – TX90p / WSDI (tendencias: grid, estatal, municipal)</title>
+  <title>Mapa – ETCCDI (tendencias + series)</title>
 
-  <!-- Leaflet CSS -->
-  <link
-    rel="stylesheet"
-    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-    crossorigin=""
-  />
+  <!-- Leaflet -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
   <style>
+    :root { --brand:#007acc; }
     html, body { height:100vh; margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
     body { display:flex; flex-direction:column; }
     #menu {
-      padding:10px; background:#f5f5f5; border-bottom:1px solid #ccc;
+      padding:10px; background:#f5f5f5; border-bottom:1px solid #ddd;
       display:flex; gap:16px; align-items:center; flex-wrap:wrap;
     }
     #menu label { font-weight:600; color:#333; }
-    #map { flex:7; }
+    #map { flex:6; }
     #chart-container {
-      flex:3; padding:16px; background:#fff;
-      border-top:4px solid #007acc;
-      box-shadow:0 -2px 6px rgba(0,0,0,0.1);
+      flex:4; padding:16px; background:#fff;
+      border-top:4px solid var(--brand);
+      box-shadow:0 -2px 6px rgba(0,0,0,0.06);
       display:flex; flex-direction:column; overflow:hidden;
     }
-    #chart-container h3 {
-      margin:0 0 12px; font-size:1.05rem; font-weight:600; color:#007acc; text-align:center;
-    }
+    #chart-title { margin:0 0 6px; font-size:1.05rem; font-weight:700; color:var(--brand); text-align:center; }
+    #chart-subtitle { margin:0 6px 6px; font-size:0.9rem; color:#555; text-align:center; }
     #chart-empty {
       margin:auto; padding:12px 16px; background:#f7fafc; border:1px dashed #a0aec0; color:#2d3748; border-radius:8px;
       font-size:0.95rem; text-align:center;
     }
-    .info.legend { background:white; padding:8px 12px; box-shadow:0 0 15px rgba(0,0,0,0.15); font-size:13px; line-height:1.2; }
-    .info.legend h4 { margin:0 0 6px; font-size:15px; font-weight:600; color:#333; }
-    .gradient-bar {
-      width:220px; height:10px;
-      background:linear-gradient(to right,#3182bd 0%,#fff 50%,#de2d26 100%);
-      margin-bottom:6px; border:1px solid #aaa;
+    #chart-note {
+      margin:8px auto 0; font-size:0.85rem; color:#444; text-align:center;
+      background:#f9fafb; border:1px solid #e5e7eb; padding:6px 10px; border-radius:8px; max-width:880px;
     }
+    .info.legend { background:white; padding:8px 12px; box-shadow:0 0 15px rgba(0,0,0,0.12); font-size:13px; line-height:1.2; border-radius:8px; }
+    .info.legend h4 { margin:0 0 6px; font-size:15px; font-weight:600; color:#333; }
+    .gradient-bar { width:220px; height:10px; margin-bottom:6px; border:1px solid #aaa; border-radius:2px; }
     .legend-labels { display:flex; justify-content:space-between; width:220px; font-size:12px; color:#333; }
+    canvas { max-height: 340px; }
+    select, input[type="checkbox"] { padding:4px; }
+    .chip { display:inline-flex; align-items:center; gap:6px; background:#f3f4f6; border:1px solid #e5e7eb; padding:6px 10px; border-radius:999px; font-size:12px; }
+    .dot { width:10px; height:10px; border-radius:50%; display:inline-block; }
   </style>
 </head>
 <body>
 
   <div id="menu">
-    <label for="index-select">Índice:</label>
+    <label for="index-select">ETCCDI:</label>
     <select id="index-select">
-      <option value="tx90p">TX90p (días cálidos)</option>
-      <option value="tn90p">TN90p (noches cálidas)</option>
-      <option value="tx10p">TX10p (días fríos)</option>
-      <option value="tn10p">TN10p (noches frías)</option>                  
-      <option value="wsdi">WSDI (rachas cálidas)</option>
+      <optgroup label="Temperatura">
+        <option value="tx90p">TX90p (días cálidos)</option>
+        <option value="tn90p">TN90p (noches cálidas)</option>
+        <option value="tx10p">TX10p (días fríos)</option>
+        <option value="tn10p">TN10p (noches frías)</option>
+        <option value="wsdi">WSDI (rachas cálidas)</option>
+        <option value="csdi">CSDI (rachas frías)</option>
+        <option value="dtr">DTR (rango diurno)</option>
+        <option value="tnn">TNn (mín. Tmin)</option>
+        <option value="tnx">TNx (máx. Tmin)</option>
+        <option value="txn">TXn (mín. Tmax)</option>
+        <option value="txx">TXx (máx. Tmax)</option>
+      </optgroup>
+      <optgroup label="Precipitación">
+        <option value="cdd">CDD (secos consecutivos)</option>
+        <option value="cwd">CWD (húmedos consecutivos)</option>
+        <option value="r10mm">R10mm (≥10 mm)</option>
+        <option value="r20mm">R20mm (≥20 mm)</option>
+        <option value="r95p">R95p (total días muy húmedos)</option>
+        <option value="r99p">R99p (total días extremadamente húmedos)</option>
+        <option value="prcptot">PRCPTOT (total anual húmedos)</option>
+        <option value="rx1day">RX1day (máx 1 día)</option>
+        <option value="rx5day">RX5day (máx 5 días)</option>
+        <option value="sdii">SDII (intensidad simple)</option>
+      </optgroup>
     </select>
 
     <label for="layer-select">Capa:</label>
@@ -61,6 +85,11 @@
       <option value="state">Estatal</option>
       <option value="muni">Municipal</option>
     </select>
+
+    <label class="chip"><input type="checkbox" id="toggle-annual" checked> <span class="dot" style="background:#111"></span> Serie anual</label>
+    <label class="chip"><input type="checkbox" id="toggle-ma" checked> <span class="dot" style="background:#888"></span> Media móvil (5)</label>
+    <label class="chip"><input type="checkbox" id="toggle-trend" checked> <span class="dot" style="background:#444"></span> Tendencia</label>
+    <label class="chip"><input type="checkbox" id="toggle-ci" checked> <span class="dot" style="background:#bbb"></span> IC 95%</label>
 
     <label style="margin-left:8px;">
       <input type="checkbox" id="sig-only" />
@@ -72,88 +101,125 @@
 
   <div id="chart-container">
     <h3 id="chart-title">Haz clic en una celda / estado / municipio</h3>
-    <div id="chart-empty">Esta vista usa <b>solo tendencias</b> desde NetCDF (sin series). Selecciona un polígono para ver su resumen.</div>
+    <div id="chart-subtitle">Debajo se mostrará la <b>serie anual</b>, la <b>media móvil</b> y la <b>tendencia lineal</b> con su banda de confianza.</div>
+    <div id="chart-empty">Selecciona un polígono para ver la serie temporal.</div>
+    <canvas id="chart" style="display:none;"></canvas>
+    <div id="chart-note" style="display:none;"></div>
   </div>
 
-  <!-- Leaflet JS -->
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
-
   <script>
-    // === Archivos por índice + capa (SOLO tendencias) ===
+    // ======= Archivos =======
+    const V = '14';
     const FILES = {
-      tx90p: {
-        grid:  './trends_tx90p_grid.json',
-        state: './trends_tx90p_state.json',
-        muni:  './trends_tx90p_muni.json'
-      },
-      tn90p: {
-        grid:  './trends_tn90p_grid.json',
-        state: './trends_tn90p_state.json',
-        muni:  './trends_tn90p_muni.json'
-      },
-      tx10p: {
-        grid:  './trends_tx10p_grid.json',
-        state: './trends_tx10p_state.json',
-        muni:  './trends_tx10p_muni.json'
-      },
-      tn10p: {
-        grid:  './trends_tn10p_grid.json',
-        state: './trends_tn10p_state.json',
-        muni:  './trends_tn10p_muni.json'
-      },                  
-      wsdi: {
-        grid:  './trends_wsdi_grid.json',
-        state: './trends_wsdi_state.json',
-        muni:  './trends_wsdi_muni.json'
-      }
-      
+      // Temperatura
+      tx90p: { grid:`./trends_tx90p_grid.json?v=${V}`, state:`./trends_tx90p_state.json?v=${V}`, muni:`./trends_tx90p_muni.json?v=${V}` },
+      tn90p: { grid:`./trends_tn90p_grid.json?v=${V}`, state:`./trends_tn90p_state.json?v=${V}`, muni:`./trends_tn90p_muni.json?v=${V}` },
+      tx10p: { grid:`./trends_tx10p_grid.json?v=${V}`, state:`./trends_tx10p_state.json?v=${V}`, muni:`./trends_tx10p_muni.json?v=${V}` },
+      tn10p: { grid:`./trends_tn10p_grid.json?v=${V}`, state:`./trends_tn10p_state.json?v=${V}`, muni:`./trends_tn10p_muni.json?v=${V}` },
+      wsdi:  { grid:`./trends_wsdi_grid.json?v=${V}`,  state:`./trends_wsdi_state.json?v=${V}`,  muni:`./trends_wsdi_muni.json?v=${V}`  },
+      csdi:  { grid:`./trends_csdi_grid.json?v=${V}`,  state:`./trends_csdi_state.json?v=${V}`,  muni:`./trends_csdi_muni.json?v=${V}`  },
+      dtr:   { grid:`./trends_dtr_grid.json?v=${V}`,   state:`./trends_dtr_state.json?v=${V}`,   muni:`./trends_dtr_muni.json?v=${V}`   },
+      tnn:   { grid:`./trends_tnn_grid.json?v=${V}`,   state:`./trends_tnn_state.json?v=${V}`,   muni:`./trends_tnn_muni.json?v=${V}`   },
+      tnx:   { grid:`./trends_tnx_grid.json?v=${V}`,   state:`./trends_tnx_state.json?v=${V}`,   muni:`./trends_tnx_muni.json?v=${V}`   },
+      txn:   { grid:`./trends_txn_grid.json?v=${V}`,   state:`./trends_txn_state.json?v=${V}`,   muni:`./trends_txn_muni.json?v=${V}`   },
+      txx:   { grid:`./trends_txx_grid.json?v=${V}`,   state:`./trends_txx_state.json?v=${V}`,   muni:`./trends_txx_muni.json?v=${V}`   },
+      // Precipitación
+      cdd:     { grid:`./trends_cdd_grid.json?v=${V}`,     state:`./trends_cdd_state.json?v=${V}`,     muni:`./trends_cdd_muni.json?v=${V}`     },
+      cwd:     { grid:`./trends_cwd_grid.json?v=${V}`,     state:`./trends_cwd_state.json?v=${V}`,     muni:`./trends_cwd_muni.json?v=${V}`     },
+      r10mm:   { grid:`./trends_r10mm_grid.json?v=${V}`,   state:`./trends_r10mm_state.json?v=${V}`,   muni:`./trends_r10mm_muni.json?v=${V}`   },
+      r20mm:   { grid:`./trends_r20mm_grid.json?v=${V}`,   state:`./trends_r20mm_state.json?v=${V}`,   muni:`./trends_r20mm_muni.json?v=${V}`   },
+      r95p:    { grid:`./trends_r95p_grid.json?v=${V}`,    state:`./trends_r95p_state.json?v=${V}`,    muni:`./trends_r95p_muni.json?v=${V}`    },
+      r99p:    { grid:`./trends_r99p_grid.json?v=${V}`,    state:`./trends_r99p_state.json?v=${V}`,    muni:`./trends_r99p_muni.json?v=${V}`    },
+      prcptot: { grid:`./trends_prcptot_grid.json?v=${V}`, state:`./trends_prcptot_state.json?v=${V}`, muni:`./trends_prcptot_muni.json?v=${V}` },
+      rx1day:  { grid:`./trends_rx1day_grid.json?v=${V}`,  state:`./trends_rx1day_state.json?v=${V}`,  muni:`./trends_rx1day_muni.json?v=${V}`  },
+      rx5day:  { grid:`./trends_rx5day_grid.json?v=${V}`,  state:`./trends_rx5day_state.json?v=${V}`,  muni:`./trends_rx5day_muni.json?v=${V}`  },
+      sdii:    { grid:`./trends_sdii_grid.json?v=${V}`,    state:`./trends_sdii_state.json?v=${V}`,    muni:`./trends_sdii_muni.json?v=${V}`    }
     };
 
-    // Config de unidades y rangos por índice
+    // ======= Config visual por índice (min/max + paletas) =======
+    // palette: 'temp' (azul-blanco-rojo) o 'prcp' (marrón-blanco-verde-azulado)
     const INDEX_CFG = {
-      tx90p: { title:'TX90p', unitsSlope:'% días/década',     min:-6, max:6, legend:'Pendiente (% días/década)' },
-      tn90p: { title:'TN90p', unitsSlope:'% días/década',     min:-6, max:6, legend:'Pendiente (% días/década)' },
-      tx10p: { title:'TX10p', unitsSlope:'% días/década',     min:-6, max:6, legend:'Pendiente (% días/década)' },
-      tn10p: { title:'TN10p', unitsSlope:'% días/década',     min:-6, max:6, legend:'Pendiente (% días/década)' },                  
-      wsdi:  { title:'WSDI',  unitsSlope:'días/década',  min:-8, max:8, legend:'Pendiente (días/década)' }
+      // % (días/década ; %)
+      tx90p: { title:'TX90p', unitsSlope:'% días/década', unitsSeries:'%',  min:-6,  max:6,  legend:'Pendiente (% días/década)', palette:'temp',  color:'#d13f3f', colorMa:'#9e2c2c', colorTrend:'#5b1b1b' },
+      tn90p: { title:'TN90p', unitsSlope:'% días/década', unitsSeries:'%',  min:-6,  max:6,  legend:'Pendiente (% días/década)', palette:'temp',  color:'#e67e22', colorMa:'#a85d18', colorTrend:'#6a3a0f' },
+      tx10p: { title:'TX10p', unitsSlope:'% días/década', unitsSeries:'%',  min:-6,  max:6,  legend:'Pendiente (% días/década)', palette:'temp',  color:'#3f7fd1', colorMa:'#2c5a9e', colorTrend:'#17335a' },
+      tn10p: { title:'TN10p', unitsSlope:'% días/década', unitsSeries:'%',  min:-6,  max:6,  legend:'Pendiente (% días/década)', palette:'temp',  color:'#7f3fd1', colorMa:'#5a2c9e', colorTrend:'#2f185a' },
+
+      // días/década ; días
+      wsdi:  { title:'WSDI',  unitsSlope:'días/década',  unitsSeries:'días',min:-8,  max:8,  legend:'Pendiente (días/década)',  palette:'temp',  color:'#2ca25f', colorMa:'#1d6f40', colorTrend:'#0f3a21' },
+      csdi:  { title:'CSDI',  unitsSlope:'días/década',  unitsSeries:'días',min:-8,  max:8,  legend:'Pendiente (días/década)',  palette:'temp',  color:'#2aa198', colorMa:'#1e786f', colorTrend:'#0d3b37' },
+
+      // °C/década ; °C
+      dtr:   { title:'DTR',   unitsSlope:'°C/década',     unitsSeries:'°C', min:-1.5,max:1.5,legend:'Pendiente (°C/década)',     palette:'temp',  color:'#546E7A', colorMa:'#3E515A', colorTrend:'#223038' },
+      tnn:   { title:'TNn',   unitsSlope:'°C/década',     unitsSeries:'°C', min:-1.5,max:1.5,legend:'Pendiente (°C/década)',     palette:'temp',  color:'#1f77b4', colorMa:'#155d8a', colorTrend:'#0b3652' },
+      tnx:   { title:'TNx',   unitsSlope:'°C/década',     unitsSeries:'°C', min:-1.5,max:1.5,legend:'Pendiente (°C/década)',     palette:'temp',  color:'#f39c12', colorMa:'#b9770e', colorTrend:'#6e4f08' },
+      txn:   { title:'TXn',   unitsSlope:'°C/década',     unitsSeries:'°C', min:-1.5,max:1.5,legend:'Pendiente (°C/década)',     palette:'temp',  color:'#c2185b', colorMa:'#8f1344', colorTrend:'#530a26' },
+      txx:   { title:'TXx',   unitsSlope:'°C/década',     unitsSeries:'°C', min:-1.5,max:1.5,legend:'Pendiente (°C/década)',     palette:'temp',  color:'#e91e63', colorMa:'#ad1547', colorTrend:'#5e0b27' },
+
+      // Precip — días/década ; días
+      cdd:     { title:'CDD',     unitsSlope:'días/década',  unitsSeries:'días', min:-12, max:12, legend:'Pendiente (días/década)', palette:'prcp', color:'#795548', colorMa:'#5d4037', colorTrend:'#3e2723' },
+      cwd:     { title:'CWD',     unitsSlope:'días/década',  unitsSeries:'días', min:-6,  max:6,  legend:'Pendiente (días/década)', palette:'prcp', color:'#4caf50', colorMa:'#2e7d32', colorTrend:'#1b5e20' },
+      r10mm:   { title:'R10mm',   unitsSlope:'días/década',  unitsSeries:'días', min:-4,  max:4,  legend:'Pendiente (días/década)', palette:'prcp', color:'#1abc9c', colorMa:'#12806f', colorTrend:'#0a4b41' },
+      r20mm:   { title:'R20mm',   unitsSlope:'días/década',  unitsSeries:'días', min:-3,  max:3,  legend:'Pendiente (días/década)', palette:'prcp', color:'#16a085', colorMa:'#0f6f5d', colorTrend:'#0a4a3e' },
+
+      // Precip — mm/década ; mm
+      r95p:    { title:'R95pTOT', unitsSlope:'mm/década',    unitsSeries:'mm',  min:-120,max:120,legend:'Pendiente (mm/década)',    palette:'prcp', color:'#2980b9', colorMa:'#1f5f89', colorTrend:'#13364e' },
+      r99p:    { title:'R99pTOT', unitsSlope:'mm/década',    unitsSeries:'mm',  min:-80, max:80, legend:'Pendiente (mm/década)',    palette:'prcp', color:'#2c3e50', colorMa:'#233240', colorTrend:'#17222b' },
+      prcptot: { title:'PRCPTOT', unitsSlope:'mm/década',    unitsSeries:'mm',  min:-150,max:150,legend:'Pendiente (mm/década)',    palette:'prcp', color:'#3498db', colorMa:'#2879ad', colorTrend:'#1b4f72' },
+      rx1day:  { title:'RX1day',  unitsSlope:'mm/década',    unitsSeries:'mm',  min:-40, max:40, legend:'Pendiente (mm/década)',    palette:'prcp', color:'#8e44ad', colorMa:'#6d3585', colorTrend:'#442255' },
+      rx5day:  { title:'RX5day',  unitsSlope:'mm/década',    unitsSeries:'mm',  min:-80, max:80, legend:'Pendiente (mm/década)',    palette:'prcp', color:'#9b59b6', colorMa:'#7a4492', colorTrend:'#512A66' },
+
+      // Precip — mm/día/década ; mm/día
+      sdii:    { title:'SDII',    unitsSlope:'mm/día/década',unitsSeries:'mm/día', min:-0.8,max:0.8, legend:'Pendiente (mm/día/década)', palette:'prcp', color:'#00bcd4', colorMa:'#008fa1', colorTrend:'#005b66' }
     };
 
-    // Caché simple de fetch
+    // ======= Utilidades =======
     const cache = {};
-    const fetchOnce = url => (cache[url] ??= fetch(url).then(r => { if(!r.ok) throw new Error(`HTTP ${r.status} — ${url}`); return r.json(); }));
+    const fetchOnce = url => (cache[url] ??= fetch(url).then(r => {
+      if(!r.ok) throw new Error(`HTTP ${r.status} — ${url}`);
+      return r.json();
+    }));
 
-    // === Leaflet map ===
-    const mexicoBounds = [[14.5, -118.5], [32.9, -86.5]];
-    const map = L.map('map', { maxBounds: mexicoBounds, maxBoundsViscosity: 1.0, minZoom: 5 })
-      .setView([23.0, -102.0], 5);
+    function hexToRgb(hex){ const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex); return m ? [parseInt(m[1],16), parseInt(m[2],16), parseInt(m[3],16)] : [0,0,0]; }
+    function lerp(a,b,t){ return a + (b-a)*t; }
+    function interpColor(c1, c2, t){
+      const r = Math.round(lerp(c1[0], c2[0], t));
+      const g = Math.round(lerp(c1[1], c2[1], t));
+      const b = Math.round(lerp(c1[2], c2[2], t));
+      return `rgb(${r},${g},${b})`;
+    }
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '© OpenStreetMap', maxZoom: 19
-    }).addTo(map);
+    // Paletas
+    // temp: azul (#2b8cbe) -> blanco (#fffffb) -> rojo (#d7191c)
+    // prcp: marrón (#8c510a) -> blanco (#f7f7f7) -> teal (#01665e)
+    function getPaletteColors(palette){
+      if (palette === 'prcp') return [ [0x8c,0x51,0x0a], [0xf7,0xf7,0xf7], [0x01,0x66,0x5e] ];
+      return [ [0x2b,0x8c,0xbe], [0xff,0xff,0xfb], [0xd7,0x19,0x1c] ];
+    }
 
-    let geojsonLayerRef = null, legendControl = null;
-
-    // === Helpers ===
-    function getColorScale(min, max){
+    function getColorScale(palette, min, max){
+      const [cMin, cMid, cMax] = getPaletteColors(palette);
       return d => {
         let t = (d - min) / (max - min);
         t = Math.max(0, Math.min(1, t));
-        if (t < 0.5) { const u = t/0.5; return `rgb(${Math.round(0x31 + u*(255-0x31))},${Math.round(0x82 + u*(255-0x82))},${Math.round(0xbd + u*(255-0xbd))})`; }
-        else { const u = (t-0.5)/0.5; return `rgb(${Math.round(255 + u*(0xde-255))},${Math.round(255 + u*(0x2d-255))},${Math.round(255 + u*(0x26-255))})`; }
+        if (t < 0.5) return interpColor(cMin, cMid, t/0.5);
+        return interpColor(cMid, cMax, (t-0.5)/0.5);
       };
     }
 
     function makeLegend(cfg){
-      if (legendControl) map.removeControl(legendControl);
-      legendControl = L.control({position:'bottomright'});
-      legendControl.onAdd = () => {
+      if (window.legendControl) map.removeControl(window.legendControl);
+      window.legendControl = L.control({position:'bottomright'});
+      window.legendControl.onAdd = () => {
         const div = L.DomUtil.create('div','info legend');
+        const [cMin, cMid, cMax] = getPaletteColors(cfg.palette).map(rgb => `rgb(${rgb[0]},${rgb[1]},${rgb[2]})`);
+        const grad = `linear-gradient(to right, ${cMin} 0%, ${cMid} 50%, ${cMax} 100%)`;
         div.innerHTML = `<h4>${cfg.legend}</h4>
-          <div class="gradient-bar"></div>
+          <div class="gradient-bar" style="background:${grad};"></div>
           <div class="legend-labels"><span>${cfg.min}</span><span>0</span><span>${cfg.max}</span></div>`;
         return div;
       };
-      legendControl.addTo(map);
+      window.legendControl.addTo(map);
     }
 
     function layerStyle(layerKey, cfg, color, pr){
@@ -165,32 +231,300 @@
       return { ...base, color:'#666', weight:1 };
     }
 
-    function showSummary(name, cfg, pr){
+    function toNumOrNull(v){
+      if (v === null || v === undefined || v === '' || v !== v) return null;
+      const n = Number(v);
+      return Number.isFinite(n) ? n : null;
+    }
+
+    function movingAverage(arr, win=5){
+      const out = new Array(arr.length).fill(null);
+      for (let i=0; i<arr.length; i++){
+        let sum=0, cnt=0;
+        for (let k=i-win+1; k<=i; k++){
+          if (k>=0 && k<arr.length && Number.isFinite(arr[k])) { sum+=arr[k]; cnt++; }
+        }
+        out[i] = cnt ? +(sum/cnt).toFixed(2) : null;
+      }
+      return out;
+    }
+
+    // Regresión lineal + IC 95% (predicción)
+    function linearRegressionWithCI(yearLabels, values){
+      const X = [], Y = [];
+      for (let i=0;i<yearLabels.length;i++){
+        const yv = toNumOrNull(values[i]);
+        if (Number.isFinite(yv)){
+          const xi = Number(yearLabels[i]); if (Number.isFinite(xi)){ X.push(xi); Y.push(yv); }
+        }
+      }
+      const n = X.length; if (n < 2) return null;
+
+      const meanX = X.reduce((a,b)=>a+b,0)/n;
+      const meanY = Y.reduce((a,b)=>a+b,0)/n;
+      let Sxx=0, Sxy=0;
+      for (let i=0;i<n;i++){ Sxx += (X[i]-meanX)**2; Sxy += (X[i]-meanX)*(Y[i]-meanY); }
+      if (Sxx === 0) return null;
+
+      const m = Sxy / Sxx;
+      const b = meanY - m*meanX;
+
+      // sigma de residuos
+      let ssRes=0;
+      for (let i=0;i<n;i++){ const yhat = m*X[i] + b; ssRes += (Y[i]-yhat)**2; }
+      const sigma = Math.sqrt(ssRes / (n-2));
+
+      const tcrit = 1.96;
+      const pred = yearLabels.map(x => {
+        const xi = Number(x);
+        if (!Number.isFinite(xi)) return null;
+        const yhat = m*xi + b;
+        const seFit = sigma * Math.sqrt( (1/n) + ((xi-meanX)**2 / Sxx) );
+        return { yhat, lo: yhat - tcrit*seFit, hi: yhat + tcrit*seFit };
+      });
+
+      const ssTot = Y.reduce((s,yi)=>s+(yi-meanY)**2,0);
+      return { m, b, r2: ssTot>0 ? 1 - ssRes/ssTot : 0, pred };
+    }
+
+    // Plugins: línea vertical + etiquetas
+    const xCrosshair = {
+      id:'xCrosshair',
+      afterDatasetsDraw(chart){
+        const {ctx, tooltip, chartArea:{top,bottom}} = chart;
+        const active = tooltip?.getActiveElements?.() || [];
+        if (!active.length) return;
+        const x = active[0].element.x;
+        ctx.save(); ctx.beginPath(); ctx.moveTo(x, top); ctx.lineTo(x, bottom);
+        ctx.lineWidth = 1; ctx.strokeStyle = 'rgba(0,0,0,0.18)'; ctx.stroke(); ctx.restore();
+      }
+    };
+    const lineEndLabels = {
+      id:'lineEndLabels',
+      afterDatasetsDraw(chart){
+        const {ctx, data:{datasets}, $units} = chart;
+        ctx.save();
+        datasets.forEach((ds, i) => {
+          if (ds.hidden || ds._noEndLabel) return;
+          const meta = chart.getDatasetMeta(i);
+          if (!meta?.data?.length) return;
+          const arr = ds.data;
+          let j = arr.length - 1;
+          while (j>=0 && (arr[j]==null || !isFinite(arr[j]))) j--;
+          if (j<0) return;
+          const pt = meta.data[j]; if (!pt) return;
+
+          const isTrend = typeof ds._slopeYear === 'number';
+          let txt;
+          if (isTrend) {
+            txt = ds._endLabel ?? ds.label;
+          } else {
+            const val = arr[j];
+            const label = ds._endLabel ?? ds.label;
+            txt = (val==null || !isFinite(val)) ? label : `${label}: ${val} ${$units||''}`;
+          }
+
+          ctx.font = '12px system-ui, -apple-system, Segoe UI, Roboto, sans-serif';
+          ctx.fillStyle = ds.borderColor || '#333';
+          ctx.fillText(txt, pt.x + 8, pt.y + 4);
+        });
+        ctx.restore();
+      }
+    };
+
+    // ======= Chart =======
+    let chartRef = null;
+    let lastCtx = null;
+
+    function computeYBounds(arrays){
+      let min = Infinity, max = -Infinity;
+      arrays.forEach(a => a?.forEach(v => { if (Number.isFinite(v)) { if (v<min) min=v; if (v>max) max=v; } }));
+      if (!isFinite(min) || !isFinite(max) || min===max){
+        return { suggestedMin: undefined, suggestedMax: undefined };
+      }
+      const pad = (max - min) * 0.08;
+      return { suggestedMin: +(min - pad).toFixed(2), suggestedMax: +(max + pad).toFixed(2) };
+    }
+
+    function renderChart(title, subtitle, years, values, units, cfg){
+      const canvas = document.getElementById('chart');
+      const empty  = document.getElementById('chart-empty');
+      const ttl    = document.getElementById('chart-title');
+      const subttl = document.getElementById('chart-subtitle');
+      const note   = document.getElementById('chart-note');
+
+      const showAnnual = document.getElementById('toggle-annual').checked;
+      const showMA     = document.getElementById('toggle-ma').checked;
+      const showTrend  = document.getElementById('toggle-trend').checked;
+      const showCI     = document.getElementById('toggle-ci').checked;
+
+      const labels = (Array.isArray(years) ? years : []).map(String);
+      const D = (Array.isArray(values) ? values : []).map(v => v==null ? null : Number(v));
+      const n = Math.min(labels.length, D.length);
+      const L = labels.slice(0, n);
+      const A = D.slice(0, n);
+      const hasAnyNumber = A.some(v => Number.isFinite(v));
+
+      ttl.textContent = title;
+      subttl.textContent = subtitle;
+
+      if (!L.length || !A.length || !hasAnyNumber){
+        canvas.style.display = 'none';
+        empty.style.display  = 'block';
+        note.style.display   = 'none';
+        empty.innerHTML = 'Sin serie disponible para este polígono.';
+        return;
+      }
+
+      empty.style.display  = 'none';
+      canvas.style.display = 'block';
+
+      const approxTicks = 12;
+      const step = Math.max(1, Math.ceil(L.length / approxTicks));
+
+      const MA = movingAverage(A, 5);
+      const lr = linearRegressionWithCI(L, A);
+
+      const datasets = [];
+      let trend=null, slopePerYear=null, slopePerDecade=null, r2=null, delta=null, y0=null, y1=null, x0=null, x1=null;
+
+      // Banda de confianza
+      if (lr && showTrend && showCI){
+        const rgb = hexToRgb(cfg.colorTrend);
+        const bandColor = `rgba(${rgb[0]},${rgb[1]},${rgb[2]},0.12)`;
+        const ciLo = lr.pred.map(p => p ? +p.lo.toFixed(2) : null);
+        const ciHi = lr.pred.map(p => p ? +p.hi.toFixed(2) : null);
+
+        datasets.push({ label: 'IC95% inferior', data: ciLo, pointRadius: 0, borderWidth: 0, borderColor: 'rgba(0,0,0,0)', backgroundColor: 'rgba(0,0,0,0)', fill: false, _noEndLabel: true, _ciBand: true });
+        datasets.push({ label: 'IC95% superior', data: ciHi, pointRadius: 0, borderWidth: 0, borderColor: 'rgba(0,0,0,0)', backgroundColor: bandColor, fill: '-1', _noEndLabel: true, _ciBand: true });
+      }
+
+      if (showAnnual){
+        datasets.push({
+          label: `Serie anual`, _endLabel: `Anual`, data: A,
+          pointRadius: 3, pointHoverRadius: 5, borderWidth: 2.8, tension: 0.25, spanGaps: true,
+          borderColor: cfg.color, backgroundColor: cfg.color + '18', fill: false
+        });
+      }
+      if (showMA){
+        datasets.push({
+          label: `Media móvil (5)`, _endLabel: `MA(5)`, data: MA,
+          pointRadius: 0, borderWidth: 2, borderDash: [6,4], tension: 0.2, spanGaps: true, borderColor: cfg.colorMa
+        });
+      }
+      if (lr && showTrend){
+        slopePerYear = lr.m;
+        slopePerDecade = lr.m * 10.0;
+        r2 = lr.r2;
+        trend = lr.pred.map(p => p ? +p.yhat.toFixed(2) : null);
+
+        const firstIdx = A.findIndex(v => Number.isFinite(v));
+        let lastIdx = A.length-1; while (lastIdx>=0 && !Number.isFinite(A[lastIdx])) lastIdx--;
+        if (firstIdx>=0 && lastIdx>firstIdx){
+          x0 = Number(L[firstIdx]); x1 = Number(L[lastIdx]);
+          y0 = slopePerYear*x0 + (lr.b); y1 = slopePerYear*x1 + (lr.b);
+          delta = y1 - y0;
+        }
+
+        datasets.push({
+          label: `Tendencia`,
+          _endLabel: `Trend: ${slopePerDecade?.toFixed(2)} ${units}/déc`,
+          data: trend, pointRadius: 0, borderWidth: 2.2, borderDash: [2,3], tension: 0, spanGaps: true,
+          borderColor: cfg.colorTrend, _slopeYear: slopePerYear, _slopeDecade: slopePerDecade
+        });
+      }
+
+      const yBounds = computeYBounds([
+        showAnnual?A:null, showMA?MA:null, (showTrend&&trend)?trend:null,
+        ...(lr && showTrend && showCI ? [lr.pred.map(p=>p?p.lo:null), lr.pred.map(p=>p?p.hi:null)] : [])
+      ]);
+
+      const data = { labels: L, datasets };
+      const options = {
+        responsive: true, maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        scales: {
+          x: {
+            title: { display: true, text: 'Año' },
+            ticks: { autoSkip: false, maxRotation: 0, minRotation: 0, callback: (val, idx) => (idx % step === 0 ? L[idx] : '') },
+            grid: { display: false }
+          },
+          y: {
+            title: { display: true, text: units },
+            grid: { color: 'rgba(0,0,0,0.06)' },
+            suggestedMin: yBounds.suggestedMin,
+            suggestedMax: yBounds.suggestedMax
+          }
+        },
+        plugins: {
+          legend: { display: true, labels: { usePointStyle: true, boxWidth: 8 } },
+          tooltip: {
+            callbacks: {
+              title: items => `Año ${items[0].label}`,
+              label: ctx => {
+                const ds = ctx.dataset;
+                if (ds._ciBand) return null;
+                if (typeof ds._slopeYear === 'number' && typeof ds._slopeDecade === 'number') {
+                  return `Tendencia: ${ds._slopeYear.toFixed(3)} ${units}/año (${ds._slopeDecade.toFixed(3)} ${units}/década)`;
+                }
+                return `${ds.label}: ${ctx.parsed.y} ${units}`;
+              }
+            }
+          }
+        }
+      };
+
+      if (chartRef){ chartRef.destroy(); }
+      chartRef = new Chart(document.getElementById('chart').getContext('2d'), { type: 'line', data, options, plugins:[xCrosshair, lineEndLabels] });
+      chartRef.$units = units;
+
+      if (lr && showTrend){
+        const perYear   = Number.isFinite(slopePerYear)   ? slopePerYear.toFixed(3)   : 'NA';
+        const perDecade = Number.isFinite(slopePerDecade) ? slopePerDecade.toFixed(3) : 'NA';
+        const r2txt     = Number.isFinite(r2) ? r2.toFixed(2) : 'NA';
+        let deltaTxt = '';
+        if (Number.isFinite(delta) && Number.isFinite(x0) && Number.isFinite(x1)){
+          deltaTxt = ` · Δ(${x0}–${x1}) ≈ <b>${delta.toFixed(2)} ${units}</b>`;
+        }
+        const bTxt = lr.b >= 0 ? `+ ${lr.b.toFixed(2)}` : `− ${Math.abs(lr.b).toFixed(2)}`;
+        note.style.display = 'block';
+        note.innerHTML = `Tendencia (serie anual): <b>${perYear} ${units}/año</b> 
+          (<b>${perDecade} ${units}/década</b>) · R²=${r2txt} · Ecuación: <i>y = ${slopePerYear.toFixed(3)}·año ${bTxt}</i>${deltaTxt}
+          <br><small>IC95% aproximado. La pendiente del mapa es por década y puede diferir de la pendiente de la serie agregada.</small>`;
+      } else {
+        note.style.display = 'none';
+      }
+
+      lastCtx = { title, subtitle, years: L, values: A, units, cfg };
+    }
+
+    function showSummaryAndSeries(name, cfg, pr){
       const pvTxt = Number.isFinite(pr.pvalue) ? pr.pvalue.toFixed(3) : 'NA';
       const cve = pr.cve_ent ? ` (CVE ${pr.cve_ent})` : '';
       const title = `${name}${cve} – ${cfg.title}`;
-      document.getElementById('chart-title').textContent = title;
-      document.getElementById('chart-empty').innerHTML =
-        `<div><b>Pendiente:</b> ${Number.isFinite(pr.slope_decade) ? pr.slope_decade.toFixed(2) : 'NA'} ${cfg.unitsSlope}</div>
-         <div><b>p-valor:</b> ${pvTxt} &nbsp;|&nbsp; <b>Significativo (p<0.05):</b> ${pr.sig_p_lt_0p05 ? 'Sí' : 'No'}</div>
-         ${typeof pr.sig_frac === 'number' ? `<div><b>Fracción de celdas significativas:</b> ${(pr.sig_frac*100).toFixed(0)}%</div>` : ''}`;
+      const sub = `Pendiente (mapa): ${Number.isFinite(pr.slope_decade) ? pr.slope_decade.toFixed(2) : 'NA'} ${cfg.unitsSlope}  •  p-valor: ${pvTxt}  •  Sig.: ${pr.sig_p_lt_0p05 ? 'Sí' : 'No'}`;
+
+      const years  = Array.isArray(pr.series_years)  ? pr.series_years  : [];
+      const values = Array.isArray(pr.series_values) ? pr.series_values : [];
+      const units  = pr.units_series || cfg.unitsSeries;
+
+      renderChart(title, sub, years, values, units, cfg);
     }
 
-    // === Carga/Redibujo ===
     function loadData(){
       const idxKey   = document.getElementById('index-select').value;
       const layerKey = document.getElementById('layer-select').value;
       const sigOnly  = document.getElementById('sig-only').checked;
-      const cfg = INDEX_CFG[idxKey];
+      const cfg  = INDEX_CFG[idxKey];
       const file = FILES[idxKey][layerKey];
 
       makeLegend(cfg);
+      const color = getColorScale(cfg.palette, cfg.min, cfg.max);
 
       fetchOnce(file).then(data => {
-        if (geojsonLayerRef) map.removeLayer(geojsonLayerRef);
-        const color = getColorScale(cfg.min, cfg.max);
+        if (window.geojsonLayerRef) map.removeLayer(window.geojsonLayerRef);
 
-        geojsonLayerRef = L.geoJSON(data, {
+        window.geojsonLayerRef = L.geoJSON(data, {
           filter: f => !sigOnly || !!f.properties.sig_p_lt_0p05,
           style:  f => layerStyle(layerKey, cfg, color, f.properties),
           onEachFeature: (f, layer) => {
@@ -199,31 +533,51 @@
             const sigTxt = pr.sig_p_lt_0p05 ? 'Sí' : 'No';
             layer.bindPopup(
               `<strong>${pr.name}${codeTxt}</strong><br>`+
-              `Pendiente: ${Number.isFinite(pr.slope_decade) ? pr.slope_decade.toFixed(2) : 'NA'} ${cfg.unitsSlope}<br>`+
+              `Pendiente (mapa): ${Number.isFinite(pr.slope_decade) ? pr.slope_decade.toFixed(2) : 'NA'} ${cfg.unitsSlope}<br>`+
               `p-valor: ${Number.isFinite(pr.pvalue) ? pr.pvalue.toFixed(3) : 'NA'}<br>`+
               `Significativo (p<0.05): ${sigTxt}` +
               (typeof pr.sig_frac === 'number' ? `<br>Fracción sig.: ${(pr.sig_frac*100).toFixed(0)}%` : '')
             );
             layer.on({
               mouseover: e => { e.target.setStyle({ weight: Math.max((e.target.options.weight||1)+0.8, 1.5), color:'#000', fillOpacity:1 }); e.target.bringToFront(); },
-              mouseout:  e => geojsonLayerRef.resetStyle(e.target),
-              click:     () => showSummary(pr.name, cfg, pr)
+              mouseout:  e => window.geojsonLayerRef.resetStyle(e.target),
+              click:     () => showSummaryAndSeries(pr.name, cfg, pr)
             });
           }
         }).addTo(map);
 
-        // Reset panel
-        document.getElementById('chart-title').textContent = 'Haz clic en una celda / estado / municipio';
-        document.getElementById('chart-empty').innerHTML   = 'Esta vista usa <b>solo tendencias</b> desde NetCDF (sin series). Selecciona un polígono para ver su resumen.';
+        document.getElementById('chart-title').textContent   = 'Haz clic en una celda / estado / municipio';
+        document.getElementById('chart-subtitle').textContent= 'Debajo se mostrará la serie anual, la media móvil y la tendencia lineal.';
+        document.getElementById('chart-empty').style.display = 'block';
+        document.getElementById('chart').style.display       = 'none';
+        document.getElementById('chart-note').style.display  = 'none';
+        lastCtx = null;
       }).catch(err => {
         console.error('Error cargando', file, err);
-        alert(`No se pudo cargar ${file}.\n¿Generaste ese JSON?`);
+        alert(`No se pudo cargar ${file}.\nSi no tienes esa capa, cambia el selector o genera el JSON con el script.`);
       });
     }
 
+    // ======= Mapa =======
+    const mexicoBounds = [[14.5, -118.5], [35.9, -86.5]];
+    const map = L.map('map', { maxBounds: mexicoBounds, maxBoundsViscosity: 1.0, minZoom: 5 })
+      .setView([23.0, -102.0], 5);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap', maxZoom: 19
+    }).addTo(map);
+
+    // UI
     document.getElementById('index-select').addEventListener('change', loadData);
     document.getElementById('layer-select').addEventListener('change', loadData);
     document.getElementById('sig-only').addEventListener('change', loadData);
+    ['toggle-annual','toggle-ma','toggle-trend','toggle-ci'].forEach(id => {
+      document.getElementById(id).addEventListener('change', () => {
+        if (!lastCtx) return;
+        const { title, subtitle, years, values, units, cfg } = lastCtx;
+        renderChart(title, subtitle, years, values, units, cfg);
+      });
+    });
 
     // Inicial
     loadData();
